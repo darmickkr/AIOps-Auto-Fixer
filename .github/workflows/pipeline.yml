@@ -1,0 +1,51 @@
+name: AIOps Pipeline
+
+on: 
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  build-and-auto-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Try to Build Docker Image
+        id: docker_build
+        # The '2> error.log' captures the failure reason for the AI to read
+        run: docker build -t my-app . 2> error.log
+        
+      - name: AIOps Agent Recovery
+        if: failure() 
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚨 Build failed! Waking up AI Agent..."
+          
+          # Install the Gemini SDK
+          pip install google-generativeai
+          
+          # Run the AI script to overwrite the Dockerfile
+          python agent_fixer.py
+          
+          # Configure Git credentials
+          git config user.name "AIOps Bot"
+          git config user.email "aiops-bot@github.local"
+          
+          # Create a new branch, commit the fix, and push
+          BRANCH_NAME="aiops-fix-${GITHUB_RUN_ID}"
+          git checkout -b $BRANCH_NAME
+          git add Dockerfile
+          git commit -m "🤖 AIOps automated fix for build failure"
+          git push origin $BRANCH_NAME
+          
+          # Open a Pull Request using the GitHub CLI
+          gh pr create --title "🚨 AIOps: Automated Build Fix" \
+                       --body "The AI agent detected a build failure, analyzed the logs, and generated this patch." \
+                       --base main --head $BRANCH_NAME
