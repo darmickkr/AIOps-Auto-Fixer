@@ -29,7 +29,7 @@ jobs:
           echo "🚨 Build failed! Waking up AI Agent..."
           
           # Install the Gemini SDK
-          pip install google-generativeai
+          pip install google-genai
           
           # Run the AI script to overwrite the Dockerfile
           python agent_fixer.py
