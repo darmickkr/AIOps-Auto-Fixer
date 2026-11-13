@@ -22,9 +22,10 @@ Broken Dockerfile: {dockerfile}
 Output ONLY the corrected Dockerfile code. Do not include any markdown formatting, backticks, or explanations."""
 
 print("Sending failure context to Gemini...")
-# 4. Use the new SDK syntax and the newer 2.0 model
+
+# 4. Use the correct, currently supported model
 response = client.models.generate_content(
-    model='gemini-2.0-flash',
+    model='gemini-3.8-flash',
     contents=prompt
 )
 fixed_code = response.text
