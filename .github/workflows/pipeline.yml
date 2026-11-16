@@ -39,11 +39,12 @@ jobs:
           git config user.email "aiops-bot@github.local"
           
           # Create a new branch, commit the fix, and push
-          BRANCH_NAME="aiops-fix-${GITHUB_RUN_ID}"
+          # Create a new branch, commit the fix, and push
+          BRANCH_NAME="aiops-fix-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git checkout -b $BRANCH_NAME
           git add Dockerfile
           git commit -m "🤖 AIOps automated fix for build failure"
-          git push origin $BRANCH_NAME
+          git push --force origin $BRANCH_NAME
           
           # Open a Pull Request using the GitHub CLI
           gh pr create --title "🚨 AIOps: Automated Build Fix" \
