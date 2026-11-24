@@ -1,52 +1,84 @@
 name: AIOps Pipeline
 
-on: 
+on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  build-and-auto-fix:
+  ci-and-self-heal:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Try to Build Docker Image
-        id: docker_build
-        # The '2> error.log' captures the failure reason for the AI to read
-        run: docker build -t my-app . 2> error.log
-        
-      - name: AIOps Agent Recovery
-        if: failure() 
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Gemini SDK
+        run: python -m pip install --upgrade google-genai
+
+      - name: Run CI/CD and AI recovery
+        id: pipeline
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python agent_fixer.py
+
+      - name: Read agent result
+        id: result
+        if: always()
+        run: |
+          if [ -f ci-result.json ]; then
+            echo "success=$(python -c 'import json; print(str(json.load(open("ci-result.json"))["success"]).lower())')" >> "$GITHUB_OUTPUT"
+            echo "repair_applied=$(python -c 'import json; print(str(json.load(open("ci-result.json"))["repair_applied"]).lower())')" >> "$GITHUB_OUTPUT"
+          else
+            echo "success=false" >> "$GITHUB_OUTPUT"
+            echo "repair_applied=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create validated fix branch and Pull Request
+        if: success() && steps.result.outputs.success == 'true' && steps.result.outputs.repair_applied == 'true'
+        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🚨 Build failed! Waking up AI Agent..."
-          
-          # Install the Gemini SDK
-          pip install google-genai
-          
-          # Run the AI script to overwrite the Dockerfile
-          python agent_fixer.py
-          
-          # Configure Git credentials
           git config user.name "AIOps Bot"
-          git config user.email "aiops-bot@github.local"
-          
-          # Create a new branch, commit the fix, and push
-          # Create a new branch, commit the fix, and push
+          git config user.email "aiops-bot@users.noreply.github.com"
+
           BRANCH_NAME="aiops-fix-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          git checkout -b $BRANCH_NAME
-          git add Dockerfile
-          git commit -m "🤖 AIOps automated fix for build failure"
-          git push --force origin $BRANCH_NAME
-          
-          # Open a Pull Request using the GitHub CLI
-          gh pr create --title "🚨 AIOps: Automated Build Fix" \
-                       --body "The AI agent detected a build failure, analyzed the logs, and generated this patch." \
-                       --base main --head $BRANCH_NAME
+
+          git switch -c "$BRANCH_NAME"
+          git add gamezone/Dockerfile
+          git commit -m "fix: AI-validated GameZone Dockerfile correction"
+          git push -u origin "$BRANCH_NAME"
+
+          gh pr create \
+            --title "AIOps: Validated CI/CD recovery" \
+            --body-file ci-report.md \
+            --base main \
+            --head "$BRANCH_NAME"
+
+      - name: Upload CI/CD report and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aiops-ci-report
+          path: |
+            ci-report.md
+            ci-failure.log
+            ci-result.json
+          if-no-files-found: warn
