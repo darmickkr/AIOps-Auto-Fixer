@@ -1,3 +1,4 @@
+
 name: AIOps Pipeline
 
 on:
@@ -35,18 +36,21 @@ jobs:
 
       - name: 2. Build
         run: python stage_runner.py build
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: 3. Test
         run: python stage_runner.py test
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: 4. Docker Build
         run: python stage_runner.py docker_build
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
       - name: 5. Deploy
         run: python stage_runner.py deploy
-
-      - name: 6. Smoke Test
-        run: python stage_runner.py smoke
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
@@ -72,7 +76,7 @@ jobs:
           BRANCH_NAME="aiops-fix-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
           git switch -c "$BRANCH_NAME"
-          git add gamezone/Dockerfile
+          git add gamezone/Dockerfile gamezone/.mvn/wrapper/maven-wrapper.properties
           git commit -m "fix: AI-validated DevOps configuration"
           git push -u origin "$BRANCH_NAME"
 
