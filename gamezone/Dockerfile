@@ -2,4 +2,4 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY target/gamezone-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8090
-ENTRYPONIT ["java", "-jar", "app.jar"]
+ ["java", "-jar", "app.jar"]
